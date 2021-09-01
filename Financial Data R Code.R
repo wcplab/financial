@@ -67,19 +67,33 @@ length(unique(output_T$FIPS))
 write.csv(output,"final_financial.csv")
 
 
+##Creeate new dataframe with all the FIPS codes, and a row for each year in the study period
+
+library(tidyr)
+#find unique FIPS codes
+FIPS<-unique(output$FIPS,)
+FIPS<-data.frame(FIPS, "ID", "YEAR",1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,
+                 2009,2010,2011,2012,2013,2014,2015,2016,2017,2018)
+#create the tidy format with a year 1997-2018 for each FIPS code
+FIPS<-gather(FIPS,"ID","YEAR","X1997","X1998","X1999","X2000","X2001","X2002","X2003","X2004","X2005","X2006","X2007","X2008",
+             "X2009","X2010","X2011","X2012","X2013","X2014","X2015","X2016","X2017","X2018", 2:22)
+FIPS<-FIPS[!(FIPS$YEAR=="ID" | FIPS$YEAR=="YEAR"),]
+FIPS<-subset(FIPS,select=-c(ID))
 
 
+#merge the financial data with the new tidy data
+output<-unite(output,"unite",FIPS,Year4,sep="_")
+FIPS<-unite(FIPS,"unite",FIPS,YEAR,sep="_")
 
+#merge the tidy version with the full financial dataset, but keep years with no data
+fin_tidy<-merge(FIPS,output,by="unite", all=TRUE)
 
+fin_tidy<-separate(fin_tidy, col = "unite", into = c("FIPS", "YEAR"), sep = "\\_")
+fin_tidy<-transform(fin_tidy, YEAR=as.numeric(YEAR))
 
+fin_tidy<-subset(fin_tidy, fin_tidy$YEAR>=1997 & fin_tidy$YEAR<=2018)
 
-
-
-
-
-
-
-
+write.csv(fin_tidy,"final_financial_tidy.csv")
 
 
 
