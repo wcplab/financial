@@ -96,9 +96,17 @@ fin_tidy<-subset(fin_tidy, fin_tidy$YEAR>=1997 & fin_tidy$YEAR<=2018)
 write.csv(fin_tidy,"final_financial_tidy.csv")
 
 
+#create zero or one vaules to find missing data and sum it
+fin_tidy$sumv <- ifelse(fin_tidy$FIPS_County=='NA', 0, 
+                          ifelse(fin_tidy$FIPS_County>0, 1))
 
+fin_tidy$sumv[is.na(fin_tidy$sumv)] <- 0
 
+library(plyr)
+fin_sum<-ddply(fin_tidy,.(FIPS),summarize,sum=sum(sumv),number=length(FIPS))
 
-
-
-
+library(data.table)
+fin_tidy_tb <- data.table(fin_tidy)
+fin_sum <- fin_tidy_tb[,list(sumamount = sum(sumv), freq = .N), by = c("FIPS")]
+#count how many entries have the full 22 years worth of data
+sum(fin_sum$sumamount==22)
