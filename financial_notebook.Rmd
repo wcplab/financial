@@ -10,15 +10,17 @@ Try executing this chunk by clicking the *Run* button within the chunk or by pla
 ```{r}
 ##Clear working directory
 rm(list=ls())
+
+```
+
+
+```{r}
 library(plyr)
 library(dplyr)
 library(tidyr)
 library(readr)
 library(data.table)
-```
-
-
-```{r}
+library(numform)
 setwd("/Users/miritfriedman/Desktop/Squeeze Data/financial")
 ```
 
@@ -36,10 +38,6 @@ vars<- c("FIPS_Code_State","FIPS_County","FIPS_Place","FIPS_Combined", "Name","Y
 fin<-read.csv("MunicipalData.csv")
 watfin<- select(fin, all_of(vars))
 
-#county data
-c_fin<-read.csv("CountyData.csv")
-c_watfin<- select(c_fin, all_of(vars))
-
 #township data
 t_fin<-read.csv("TownshipData.csv")
 t_watfin<- select(t_fin, all_of(vars))
@@ -52,34 +50,29 @@ masterFIPS <- read.csv("/Users/miritfriedman/Desktop/Confirmed_v4.csv")
 ```
 
 
-Create the debt ratio in each dataset 
+Create the debt ratio in each dataset. Add leading zeros. Merge codes.
 ```{r}
 #municipalities
 watfin$Debt_Ratio <- watfin$Total_Debt_Outstanding/watfin$Total_Revenue
-watfin<-watfin%>%unite("FIPS","FIPS_Code_State","FIPS_Place", sep = "")
-
-#county
-c_watfin$Debt_Ratio <- c_watfin$Total_Debt_Outstanding/c_watfin$Total_Revenue
-c_watfin<-c_watfin%>%unite("FIPS","FIPS_Code_State","FIPS_Place", sep = "")
+watfin$FIPS_Place<-f_pad_zero(watfin$FIPS_Place)
+watfin$FIPS<- paste(watfin$FIPS_Code_State,watfin$FIPS_Place, sep="")
+watfin$FIPS_wc<-NA
 
 #township
 t_watfin$Debt_Ratio <- t_watfin$Total_Debt_Outstanding/t_watfin$Total_Revenue
-t_watfin<-t_watfin%>%unite("FIPS","FIPS_Code_State","FIPS_Place", sep = "")
-
+t_watfin$FIPS_Place<-f_pad_zero(t_watfin$FIPS_Place)
+t_watfin$FIPS_wc<- paste(t_watfin$FIPS_Code_State,t_watfin$FIPS_County,t_watfin$FIPS_Place, sep="")
+t_watfin$FIPS<-NA
 ```
 
 ```{r}
-#subset the large financial database using the master list of FIPS codes
-output_M <- match_df(watfin, masterFIPS, on = "FIPS")
-#subset the large financial database using the master list of FIPS codes
-output_C <- match_df(c_watfin, masterFIPS, on = "FIPS")
-#subset the large financial database using the master list of FIPS codes
-output_T <- match_df(t_watfin, masterFIPS, on = "FIPS")
+n1<-merge(watfin,masterFIPS, by.x="FIPS",by.y="FIPS")
+n2<-merge(t_watfin,masterFIPS, by.x="FIPS_wc",by.y="FIPS")
 ```
 
 
 ```{r}
-output <- rbind(output_M, output_C, output_T)
+output <- rbind(n1,n2)
 ```
 
 
@@ -115,16 +108,10 @@ write.csv(fin_tidy,"final_financial_tidy.csv")
 ```
 
 
-
-```{r}
-#count how many entries have the full 22 years worth of data
-sum(fin_sum$sumamount==22)
-```
 ```{r}
 years<-c("1997","2002","2007","2012","2017")
 fin_27<-fin_tidy[fin_tidy$YEAR %in% years,]
 ```
-
 
 
 ```{r}
@@ -141,3 +128,31 @@ fin_27_tb <- data.table(fin_27)
 fin_sum <- fin_27_tb[,list(sumamount = sum(sumv), freq = .N), by = c("FIPS")]
 ```
 
+
+```{r}
+# find the PWS that don't have financial data - returns the list of places without matches
+masterFIPS$FIPS<-as.character(masterFIPS$FIPS)
+comp<-anti_join(masterFIPS,fin_sum, by="FIPS")
+```
+
+
+
+
+
+
+
+
+
+
+Don't run
+```{r}
+#subset the large financial database using the master list of FIPS codes
+output_M <- match_df(watfin, masterFIPS, on = "FIPS")
+output_Mc<-match_df(watfin, masterFIPS, on = "FIPS_wc")
+#subset the large financial database using the master list of FIPS codes
+output_C <- match_df(c_watfin, masterFIPS, on = "FIPS")
+output_Cc<-match_df(watfin, masterFIPS, on = "FIPS_wc")
+#subset the large financial database using the master list of FIPS codes
+output_T <- match_df(t_watfin, masterFIPS, on = "FIPS")
+output_Tc<-match_df(watfin, masterFIPS, on = "FIPS_wc")
+```
