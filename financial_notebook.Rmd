@@ -1,19 +1,18 @@
 ---
-title: "R Notebook"
+title: "Financial Data Cleaning"
 output: html_notebook
 ---
+Edited By: Mirit Friedman
+Edited on: 12/6/2021
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
-
+Only run this if the workspace needs to be cleared.
 ```{r}
 ##Clear working directory
 rm(list=ls())
 
 ```
 
-
+Load all of the libraries needed and set the working directory. The working directory is where the files are stored. When copying this code to a different computer, save the base files to a folder and change the working directory to that folder. That folder is where files will be read from and saved to.
 ```{r}
 library(plyr)
 library(dplyr)
@@ -24,7 +23,7 @@ library(numform)
 setwd("/Users/miritfriedman/Desktop/Squeeze Data/financial")
 ```
 
-Select out the variables that we want to use in the analysis. The complete list of variables can be found here....
+Select out the variables to use in the analysis. The complete list of variables can be found in the document the Appendix For the Government Financial Database. https://willamette.edu/mba/research-impact/public-datasets/index.html
 ```{r}
 vars<- c("FIPS_Code_State","FIPS_County","FIPS_Place","FIPS_Combined", "Name","Year4","Total_Revenue", "Total_Expenditure", "Total_Taxes","Water_Utility_Revenue","Water_Util_Total_Exp", 
          "Water_Util_Inter_Exp", "Water_Util_Cap_Outlay", "Water_Util_Current_Exp",
@@ -32,52 +31,51 @@ vars<- c("FIPS_Code_State","FIPS_County","FIPS_Place","FIPS_Combined", "Name","Y
          "Police_Prot_Total_Exp", "Total_Debt_Outstanding", "Total_IG_Revenue", "Total_Rev_Own_Sources")
 ```
 
-
+Use the municipal and the township data from the Government Financial Database. This code reads in those files and subsets the data by the variables of interest. Setting the colClasses for these data allows for leading zeros to be read in, which are important for combining FIPS codes.
 ```{r}
 #municipal data
-fin<-read.csv("MunicipalData.csv")
+fin<-read.csv("MunicipalData.csv",colClasses = c("FIPS_County" = "character", "FIPS_Place" = "character"))
 watfin<- select(fin, all_of(vars))
 
 #township data
-t_fin<-read.csv("TownshipData.csv")
+t_fin<-read.csv("TownshipData.csv",colClasses = c("FIPS_County" = "character", "FIPS_Place" = "character"))
 t_watfin<- select(t_fin, all_of(vars))
 ```
 
-
+Read in the master FIPS list with the confirmed matches. When the master list changes, change the document being read in here.
 ```{r}
 #read in the master FIPS code list to cut the data 
 masterFIPS <- read.csv("/Users/miritfriedman/Desktop/Confirmed_v4.csv")
 ```
 
 
-Create the debt ratio in each dataset. Add leading zeros. Merge codes.
+This code does two things. For the municipal and township data, it creates a new variable: Debt Ratio. The debt ratio is the total outstanding debt divided by the total revenue. It adds the new variable as a new column. Secondly, it creates a combine FIPS code that will be used to match the master FIPS list and the financial data. The master list already has a combined FIPS code. For municipalities, the FIPS code is a combination of the State FIPS code and the Place FIPS code. For Townships, the FIPS code is a combination of the State, County, and Place FIPS codes.
 ```{r}
 #municipalities
 watfin$Debt_Ratio <- watfin$Total_Debt_Outstanding/watfin$Total_Revenue
-watfin$FIPS_Place<-f_pad_zero(watfin$FIPS_Place)
+#watfin$FIPS_Place<-f_pad_zero(watfin$FIPS_Place)
 watfin$FIPS<- paste(watfin$FIPS_Code_State,watfin$FIPS_Place, sep="")
-watfin$FIPS_wc<-NA
 
 #township
 t_watfin$Debt_Ratio <- t_watfin$Total_Debt_Outstanding/t_watfin$Total_Revenue
-t_watfin$FIPS_Place<-f_pad_zero(t_watfin$FIPS_Place)
-t_watfin$FIPS_wc<- paste(t_watfin$FIPS_Code_State,t_watfin$FIPS_County,t_watfin$FIPS_Place, sep="")
-t_watfin$FIPS<-NA
+#t_watfin$FIPS_Place<-f_pad_zero(t_watfin$FIPS_Place)
+t_watfin$FIPS<- paste(t_watfin$FIPS_Code_State,t_watfin$FIPS_County,t_watfin$FIPS_Place, sep="")
 ```
 
+Merge the master FIPS list with the financial data, only keeping financial data that aligns with the master list.
 ```{r}
 n1<-merge(watfin,masterFIPS, by.x="FIPS",by.y="FIPS")
-n2<-merge(t_watfin,masterFIPS, by.x="FIPS_wc",by.y="FIPS")
+n2<-merge(t_watfin,masterFIPS, by.x="FIPS",by.y="FIPS")
 ```
 
-
+Rbind binds together the municipal data and the township data into one file.
 ```{r}
 output <- rbind(n1,n2)
 ```
 
-
+To turn the data into 'tidy' data, create a row for each FIPS code and each year in the study period. Each FIPS code will have 22 rows with unique data. 
 ```{r}
-##Creeate new dataframe with all the FIPS codes, and a row for each year in the study period
+##Create new dataframe with all the FIPS codes, and a row for each year in the study period
 
 #find unique FIPS codes
 FIPS<-unique(output$FIPS,)
@@ -91,6 +89,7 @@ FIPS<-subset(FIPS,select=-c(ID))
 ```
 
 
+Merge the financial data with the newly created tidy data frame. 
 ```{r}
 #merge the financial data with the new tidy data
 output<-unite(output,"unite",FIPS,Year4,sep="_")
@@ -103,19 +102,27 @@ fin_tidy<-separate(fin_tidy, col = "unite", into = c("FIPS", "YEAR"), sep = "\\_
 fin_tidy<-transform(fin_tidy, YEAR=as.numeric(YEAR))
 
 fin_tidy<-subset(fin_tidy, fin_tidy$YEAR>=1997 & fin_tidy$YEAR<=2018)
+```
 
+Run this code to export it as a csv file
+```{r}
 write.csv(fin_tidy,"final_financial_tidy.csv")
 ```
 
-
+Local governments are required to report financial data on years ending in 2 and 7. Since the years in between have variable coverage, subset the list by years that end in 2 and 7 in the study period. 
 ```{r}
 years<-c("1997","2002","2007","2012","2017")
 fin_27<-fin_tidy[fin_tidy$YEAR %in% years,]
 ```
 
-
+Run this code to export it as a csv file
 ```{r}
-#create zero or one vaules to find missing data and sum it
+write.csv(fin_27, "financial_27.csv")
+```
+
+This code creates a new column in the data that has either a 1 or 0 for whether the data for that row is complete. It then sums across the rows for each unique FIPS code to count how many rows of data each FIPS code has. The desired number is 5 rows of data; one for each of the years ending in 2 and 7 in the study period. If there are fewer that five rows, there is either missing data, the local government doesn't exist anymore, or the FIPS code for that local government changed during the study period. If there are more that five rows, there are likely duplicates in the master FIPS list.
+```{r}
+#create zero or one values to find missing data and sum it
 fin_27$sumv <- ifelse(fin_27$FIPS_County=='NA', 0, 
                           ifelse(fin_27$FIPS_County>0, 1))
 
@@ -128,7 +135,7 @@ fin_27_tb <- data.table(fin_27)
 fin_sum <- fin_27_tb[,list(sumamount = sum(sumv), freq = .N), by = c("FIPS")]
 ```
 
-
+To determine which local governments lack financial data, use an anti-join function. It finds where there is a row that doesn't have a match. These local governments seem to be anomolies in some way.
 ```{r}
 # find the PWS that don't have financial data - returns the list of places without matches
 masterFIPS$FIPS<-as.character(masterFIPS$FIPS)
@@ -137,22 +144,3 @@ comp<-anti_join(masterFIPS,fin_sum, by="FIPS")
 
 
 
-
-
-
-
-
-
-
-Don't run
-```{r}
-#subset the large financial database using the master list of FIPS codes
-output_M <- match_df(watfin, masterFIPS, on = "FIPS")
-output_Mc<-match_df(watfin, masterFIPS, on = "FIPS_wc")
-#subset the large financial database using the master list of FIPS codes
-output_C <- match_df(c_watfin, masterFIPS, on = "FIPS")
-output_Cc<-match_df(watfin, masterFIPS, on = "FIPS_wc")
-#subset the large financial database using the master list of FIPS codes
-output_T <- match_df(t_watfin, masterFIPS, on = "FIPS")
-output_Tc<-match_df(watfin, masterFIPS, on = "FIPS_wc")
-```
