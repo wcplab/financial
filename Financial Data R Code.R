@@ -24,7 +24,7 @@ watfin$Debt_Ratio <- watfin$Total_Debt_Outstanding/watfin$Total_Revenue
 watfin<-watfin%>%unite("FIPS","FIPS_Code_State","FIPS_Place", sep = "")
 
 #read in the master FIPS code list to cut the data 
-masterFIPS <- read.csv("/Users/miritfriedman/Desktop/moisture/modified files/final_moisture.csv")
+masterFIPS <- read.csv("/Users/miritfriedman/Desktop/Confirmed_v4.csv")
 masterFIPS<- rename(masterFIPS, FIPS = subject.FIPS)
 
 #subset the large financial database using the master list of FIPS codes
