@@ -25,7 +25,12 @@ setwd("/Users/miritfriedman/Desktop/Squeeze Data/financial")
 
 Select out the variables to use in the analysis. The complete list of variables can be found in the document the Appendix For the Government Financial Database. https://willamette.edu/mba/research-impact/public-datasets/index.html
 ```{r}
-vars<- c("FIPS_Code_State","FIPS_County","FIPS_Place","FIPS_Combined", "Name","Year4","Total_Revenue", "Total_Expenditure", "Total_Taxes","Water_Utility_Revenue","Water_Util_Total_Exp", 
+vars_M<- c("ID","FIPS_Code_State","FIPS_County","FIPS_Place","FIPS_Combined", "Name","Year4","Total_Revenue", "Total_Expenditure", "Total_Taxes","Water_Utility_Revenue","Water_Util_Total_Exp", 
+         "Water_Util_Inter_Exp", "Water_Util_Cap_Outlay", "Water_Util_Current_Exp",
+         "Water_Util_Construct", "Transit_Sub_Total_Exp", "Health_Total_Expend", "Parks___Rec_Total_Exp",
+         "Police_Prot_Total_Exp", "Total_Debt_Outstanding", "Total_IG_Revenue", "Total_Rev_Own_Sources")
+
+vars_T<- c("GOVSid","FIPS_Code_State","FIPS_County","FIPS_Place","FIPS_Combined", "Name","Year4","Total_Revenue", "Total_Expenditure", "Total_Taxes","Water_Utility_Revenue","Water_Util_Total_Exp", 
          "Water_Util_Inter_Exp", "Water_Util_Cap_Outlay", "Water_Util_Current_Exp",
          "Water_Util_Construct", "Transit_Sub_Total_Exp", "Health_Total_Expend", "Parks___Rec_Total_Exp",
          "Police_Prot_Total_Exp", "Total_Debt_Outstanding", "Total_IG_Revenue", "Total_Rev_Own_Sources")
@@ -35,17 +40,18 @@ Use the municipal and the township data from the Government Financial Database. 
 ```{r}
 #municipal data
 fin<-read.csv("MunicipalData.csv",colClasses = c("FIPS_County" = "character", "FIPS_Place" = "character"))
-watfin<- select(fin, all_of(vars))
+watfin<- select(fin, all_of(vars_M))
 
 #township data
 t_fin<-read.csv("TownshipData.csv",colClasses = c("FIPS_County" = "character", "FIPS_Place" = "character"))
-t_watfin<- select(t_fin, all_of(vars))
+t_watfin<- select(t_fin, all_of(vars_T))
 ```
 
 Read in the master FIPS list with the confirmed matches. When the master list changes, change the document being read in here.
 ```{r}
 #read in the master FIPS code list to cut the data 
-masterFIPS <- read.csv("/Users/miritfriedman/Desktop/Confirmed_v4.csv")
+#masterFIPS <- read.csv("/Users/miritfriedman/Desktop/Confirmed_v4.csv")
+masterFIPS <- read.csv("/Users/miritfriedman/Desktop/Squeeze Data/financial/Confirmed_v6.csv")
 ```
 
 
@@ -60,7 +66,17 @@ watfin$FIPS<- paste(watfin$FIPS_Code_State,watfin$FIPS_Place, sep="")
 t_watfin$Debt_Ratio <- t_watfin$Total_Debt_Outstanding/t_watfin$Total_Revenue
 #t_watfin$FIPS_Place<-f_pad_zero(t_watfin$FIPS_Place)
 t_watfin$FIPS<- paste(t_watfin$FIPS_Code_State,t_watfin$FIPS_County,t_watfin$FIPS_Place, sep="")
+colnames(t_watfin)[1]<-"ID"
 ```
+
+Output a version of the financial data that has a match between the FIPS and Government ID
+```{r}
+GOV_FIPS<- rbind(watfin,t_watfin)
+GOV_FIPS<- subset(GOV_FIPS, select = c("ID", "Name", "FIPS"))
+
+write.csv(GOV_FIPS,"/Users/miritfriedman/Desktop/Squeeze Data/govID_to_FIPS.csv")
+```
+
 
 Merge the master FIPS list with the financial data, only keeping financial data that aligns with the master list.
 ```{r}
@@ -106,7 +122,7 @@ fin_tidy<-subset(fin_tidy, fin_tidy$YEAR>=1997 & fin_tidy$YEAR<=2018)
 
 Run this code to export it as a csv file
 ```{r}
-write.csv(fin_tidy,"final_financial_tidy.csv")
+write.csv(fin_tidy,"final_financial_tidy_v6.csv")
 ```
 
 Local governments are required to report financial data on years ending in 2 and 7. Since the years in between have variable coverage, subset the list by years that end in 2 and 7 in the study period. 
@@ -117,7 +133,7 @@ fin_27<-fin_tidy[fin_tidy$YEAR %in% years,]
 
 Run this code to export it as a csv file
 ```{r}
-write.csv(fin_27, "financial_27.csv")
+write.csv(fin_27, "financial_27_v6.csv")
 ```
 
 This code creates a new column in the data that has either a 1 or 0 for whether the data for that row is complete. It then sums across the rows for each unique FIPS code to count how many rows of data each FIPS code has. The desired number is 5 rows of data; one for each of the years ending in 2 and 7 in the study period. If there are fewer that five rows, there is either missing data, the local government doesn't exist anymore, or the FIPS code for that local government changed during the study period. If there are more that five rows, there are likely duplicates in the master FIPS list.
